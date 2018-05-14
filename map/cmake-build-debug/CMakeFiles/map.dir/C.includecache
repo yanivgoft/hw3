@@ -1,0 +1,24 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+C:/Users/yaniv/Desktop/mtm/hw3/map/main.c
+stdio.h
+-
+map_mtm.h
+C:/Users/yaniv/Desktop/mtm/hw3/map/map_mtm.h
+stdlib.h
+-
+string.h
+-
+stdio.h
+-
+
+C:/Users/yaniv/Desktop/mtm/hw3/map/map_mtm.h
+stdbool.h
+-
+

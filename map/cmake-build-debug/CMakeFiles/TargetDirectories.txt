@@ -1,0 +1,3 @@
+C:/Users/yaniv/Desktop/mtm/hw3/map/cmake-build-debug/CMakeFiles/map.dir
+C:/Users/yaniv/Desktop/mtm/hw3/map/cmake-build-debug/CMakeFiles/edit_cache.dir
+C:/Users/yaniv/Desktop/mtm/hw3/map/cmake-build-debug/CMakeFiles/rebuild_cache.dir
