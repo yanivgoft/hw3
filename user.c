@@ -57,13 +57,10 @@ Element userCopy(Element input){
     return new_user;
 }
 
-bool userCompare(Element e1,Element e2){
+int userCompare(Element e1,Element e2){
     User user1=(User) e1;
     User user2=(User) e2;
-    if (strcmp((user1->user_name,user2->user_name))!=0){
-        return false;
-    }
-    return true;
+    return strcmp((user1->user_name,user2->user_name))
 }
 
 char* userGetName(User user){
