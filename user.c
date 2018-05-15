@@ -25,13 +25,13 @@ User userCreate(const char* new_name,int age){
         return NULL;
     }
     strcpy(new_user->user_name,new_name);
-    new_user->fav_shows=setCreate(showCopy,showDestroy,showCompare);
+    new_user->fav_shows=setCreate(stringCopy, stringDestroy, stringCompare);
     if(!new_user->fav_shows){
         free(new_user->user_name);
         free(new_user);
         return NULL;
     }
-    new_user->friends=setCreate(userCopy,userDestroy,userCompare);
+    new_user->friends=setCreate(stringCopy, stringDestroy, stringCompare);
     if(!new_user->friends){
         setDestroy(new_user->fav_shows);
         free(new_user->user_name);
@@ -62,11 +62,26 @@ Element userCopy(Element input){
     return new_user;
 }
 
-int userCompare(Element e1,Element e2){
-    User user1=(User) e1;
-    User user2=(User) e2;
-    return strcmp(user1->user_name,user2->user_name);
+Element stringCopy(Element input){
+    char* str=malloc(sizeof(char)*(strlen(input)+1));
+    if(!str){
+        return NULL;
+    }
+    strcpy(str,input);
+    return str;
 }
+int stringCompare(Element e1, Element e2){
+    return strcmp(e1,e2);
+}
+void stringDestroy(Element input){
+    free(input);
+    input=NULL;
+}
+
+
+
+
+
 /*
 char* userGetName(User user){
     char* name=malloc(sizeof(strlen(user->user_name)+1));

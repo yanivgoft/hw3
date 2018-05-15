@@ -8,9 +8,6 @@
 #include "C:\Users\yaniv\Desktop\mtm\hw3\HW3_Files_GoodLuck_v3\mtm_ex3.h"
 
 
-const char* genres[] = { "SCIENCE_FICTION", "DRAMA", "COMEDY", "CRIME",
-                         "MYSTERY", "DOCUMENTARY", "ROMANCE", "HORROR"};
-
 
 Show showCreate(char* name, Genre genre, int ages[2], int episode_duration,
                 int episode_num) {
@@ -55,15 +52,4 @@ Element showCopy(Element input){
         return NULL;
     }
     return copy;
-}
-
-int showCompare(Element e1, Element e2){
-    assert(e1 && e2);
-    Show show1=(Show )e1;
-    Show show2=(Show)e2;
-    int compare=strcmp(genres[show1->genre], genres[show2->genre]);
-    if(compare!=0){
-        return compare;
-    }
-    return strcmp(show1->name,show2->name);
 }

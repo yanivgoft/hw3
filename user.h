@@ -12,6 +12,8 @@ typedef struct user_t  {
 User userCreate(const char* new_name,int age);
 void userDestroy(Element input);
 Element userCopy(Element input);
-int userCompare(Element e1,Element e2);
+Element stringCopy(Element input);
+int stringCompare(Element e1, Element e2);
+void stringDestroy(Element input);
 
 #endif

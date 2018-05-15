@@ -11,9 +11,10 @@ typedef struct show_t  {
     Genre genre;
 }*Show;
 
+
+
 Show showCreate(char* name, Genre genre, int ages[2], int episode_duration,
                 int episode_num);
 void showDestroy(Element show);
 Element showCopy(Element input);
-int showCompare(Element e1, Element e2);
 #endif
