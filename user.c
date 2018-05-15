@@ -4,19 +4,16 @@
 #include <string.h>
 #include "set.h"
 #include "mtm_ex3.h"
-
+#include "user.h"
+#include "show.h"
 typedef void* Element;
 
+void userDestroy(Element input);
+Element userCopy(Element input);
+int userCompare(Element e1,Element e2);
 
-typedef struct user_t  {
-    int age;
-    char* user_name;
-    Set fav_shows;
-    Set friends;
 
-}*User;
-
-User userCreate(char* new_name,int age){
+User userCreate(const char* new_name,int age){
     User new_user=malloc(sizeof(*new_user));
     if(new_user==NULL){
         return NULL;
@@ -24,12 +21,21 @@ User userCreate(char* new_name,int age){
     new_user->age=age;
     new_user->user_name=malloc(sizeof(char)*(strlen(new_name)+1));
     if(new_user->user_name==NULL){
+        free(new_user);
         return NULL;
     }
     strcpy(new_user->user_name,new_name);
-    //Set new_fav_shows=setCreate(showsCopy,showsDestroy,showsCompare);
-    Set friends=setCreate(userCopy,userDestroy,userCompare);
-    if(friends==NULL || fav_shows==NULL){
+    new_user->fav_shows=setCreate(showCopy,showDestroy,showCompare);
+    if(!new_user->fav_shows){
+        free(new_user->user_name);
+        free(new_user);
+        return NULL;
+    }
+    new_user->friends=setCreate(userCopy,userDestroy,userCompare);
+    if(!new_user->friends){
+        setDestroy(new_user->fav_shows);
+        free(new_user->user_name);
+        free(new_user);
         return NULL;
     }
     return new_user;
@@ -42,7 +48,6 @@ void userDestroy(Element input){
     free(user->user_name);
     free(user);
     user=NULL;
-
 }
 
 
@@ -50,7 +55,7 @@ Element userCopy(Element input){
     User user=(User) input;
     User new_user=userCreate(user->user_name,user->age);
     if(new_user==NULL){
-        retrun NULL;
+        return NULL;
     }
     new_user->fav_shows=setCopy(user->fav_shows);
     new_user->friends=setCopy(user->friends);
@@ -60,9 +65,9 @@ Element userCopy(Element input){
 int userCompare(Element e1,Element e2){
     User user1=(User) e1;
     User user2=(User) e2;
-    return strcmp((user1->user_name,user2->user_name))
+    return strcmp(user1->user_name,user2->user_name);
 }
-
+/*
 char* userGetName(User user){
     char* name=malloc(sizeof(strlen(user->user_name)+1));
     if(name==NULL){
@@ -95,3 +100,4 @@ bool userAddShow(User user,Show show){
 bool userAddFriend(User user,User friend){
     setAdd(user->friends,friend);
 }
+*/
