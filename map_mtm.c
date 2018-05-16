@@ -24,10 +24,14 @@ struct Map_t{
 };
 
 Map mapCreate(copyMapDataElements copyDataElement, copyMapKeyElements copyKeyElement,
-        freeMapDataElements freeDataElement, freeMapKeyElements freeKeyElement,
-        compareMapKeyElements compareKeyElements){
+              freeMapDataElements freeDataElement, freeMapKeyElements freeKeyElement,
+              compareMapKeyElements compareKeyElements){
     Map map=malloc(sizeof( *map));
     if(!map){
+        return NULL;
+    }
+    if(copyDataElement==NULL || copyKeyElement==NULL || freeDataElement==NULL
+            || freeKeyElement==NULL || compareKeyElements==NULL){
         return NULL;
     }
     map->copy_data=copyDataElement;
@@ -47,6 +51,9 @@ void static nodeDestroy(Map m, Node n){
 }
 
 void mapDestroy(Map map){
+    if(map==NULL){
+        return;
+    }
     while(map->iterator!=NULL){
         Node temp=map->iterator->next;
         nodeDestroy(map, map->iterator);
@@ -54,6 +61,7 @@ void mapDestroy(Map map){
     }
     free(map);
     map=NULL;
+
 }
 
 Map mapCopy(Map map){
@@ -106,6 +114,9 @@ bool mapContains(Map map, MapKeyElement element) {
 MapResult mapPut(Map map, MapKeyElement keyElement,
                  MapDataElement dataElement){
     if(!map){
+        return MAP_NULL_ARGUMENT;
+    }
+    if(keyElement==NULL || dataElement==NULL){
         return MAP_NULL_ARGUMENT;
     }
     Node temp=findNodeLocation(map,keyElement);
@@ -216,5 +227,6 @@ MapResult mapClear(Map map){
         map->iterator=map->iterator->next;
         mapRemove(map, map->iterator->prev->key);
     }
-    mapRemove(map,map->iterator->key);
+    MapResult result=mapRemove(map,map->iterator->key);
+    return result;
 }
