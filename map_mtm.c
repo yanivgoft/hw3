@@ -24,8 +24,10 @@ struct Map_t{
     freeMapKeyElements free_key;
 };
 
-Map mapCreate(copyMapDataElements copyDataElement, copyMapKeyElements copyKeyElement,
-              freeMapDataElements freeDataElement, freeMapKeyElements freeKeyElement,
+Map mapCreate(copyMapDataElements copyDataElement,
+              copyMapKeyElements copyKeyElement,
+              freeMapDataElements freeDataElement,
+              freeMapKeyElements freeKeyElement,
               compareMapKeyElements compareKeyElements){
     Map map=malloc(sizeof( *map));
     if(!map){
@@ -66,12 +68,25 @@ void mapDestroy(Map map){
 
 }
 
+
 Map mapCopy(Map map){
+    if(!map){
+        return NULL;
+    }
     Map copy=mapCreate(map->copy_data, map->copy_key, map->free_data,
                        map->free_key, map->compare_key);
     if(!copy){
         return NULL;
     }
+    Node temp=map->first;
+    while(temp){
+        MapKeyElement key=temp->key;
+        MapDataElement data=temp->data;
+        //Node new_temp=nodeCreate(map,data,key,&result);
+        mapPut(copy,key,data);
+        temp=temp->next;
+    }
+
     return copy;
 }
 
@@ -81,6 +96,9 @@ int mapGetSize(Map map){
     }
     int counter=1;
     Node temp=map->iterator;
+    if(map->first==NULL && map->first==NULL){
+        return 0;
+    }
     while(temp){
         counter++;
         temp=temp->prev;
@@ -91,10 +109,12 @@ int mapGetSize(Map map){
     }
     return counter;
 }
-
 static Node findNodeLocation(Map map, MapKeyElement element){
-    assert(map&& element&&map->first);
+    assert(map && element && map->first);
     Node temp=map->first;
+    if(!map->first){
+        return NULL;
+    }
     if(map->compare_key(element, temp->key)>0) {
         while (temp->next && map->compare_key(element, temp->key) > 0) {
             temp = temp->next;
@@ -112,13 +132,20 @@ bool mapContains(Map map, MapKeyElement element) {
     if (!map || !element) {
         return false;
     }
+    if(mapGetSize(map)==0){
+        return false;
+    }
+    if(!findNodeLocation(map,element)){
+        return false;
+    }
     if (map->compare_key(findNodeLocation(map, element)->key, element)) {
         return false;
     }
     return true;
 }
 
-static Node nodeCreate(Map map,MapDataElement dataElement,MapKeyElement keyElement,MapResult* result){
+static Node nodeCreate(Map map,MapDataElement dataElement,
+       MapKeyElement keyElement,MapResult* result){
     Node new_node=malloc(sizeof(*new_node));
     if(!new_node){
         *result= MAP_OUT_OF_MEMORY;
@@ -168,7 +195,7 @@ MapResult mapPut(Map map, MapKeyElement keyElement,
         map->free_data(temp->data);
         temp->data=map->copy_data(dataElement);
     }
-    else {
+    else {//compare!=0
         new_node=nodeCreate(map,dataElement,keyElement,&result);
         if(result!=MAP_SUCCESS){
             map->iterator=NULL;
@@ -182,6 +209,7 @@ MapResult mapPut(Map map, MapKeyElement keyElement,
             }
             else {
                 new_node->prev=NULL;
+                map->first=new_node;
             }
             new_node->next = temp;
             temp->prev = new_node;
@@ -207,9 +235,6 @@ MapDataElement mapGet(Map map, MapKeyElement keyElement) {
         return NULL;
     }
     Node temp = findNodeLocation(map, keyElement);
-    if (temp->key != keyElement) {
-        return NULL;
-    }
     return temp->data;
 }
 
@@ -218,11 +243,19 @@ MapResult mapRemove(Map map, MapKeyElement keyElement){
         return MAP_NULL_ARGUMENT;
     }
     Node temp=findNodeLocation(map,keyElement);
-    if(temp->key!=keyElement){
+    if(map->compare_key(keyElement, temp->key)){
         return MAP_ITEM_DOES_NOT_EXIST;
     }
-    temp->prev->next=temp->next;
-    temp->next->prev=temp->prev;
+    if(temp->prev !=NULL && temp->next!=NULL){
+        temp->prev->next=temp->next;
+        temp->next->prev=temp->prev;
+    }
+    if(temp->prev==NULL && temp->next!=NULL){
+        temp->next->prev=NULL;
+    }
+    if(temp->prev!=NULL && temp->next==NULL){
+        temp->prev->next=NULL;
+    }
     map->free_data(temp->data);
     map->free_key(temp->key);
     free(temp);
@@ -234,12 +267,18 @@ MapKeyElement mapGetFirst(Map map){
     if(!map){
         return NULL;
     }
+    if(mapGetSize(map)==0){
+        return NULL;
+    }
     map->iterator=map->first;
     return map->first->key;
 }
 
 
 MapKeyElement mapGetNext(Map map){
+    if(!map){
+        return NULL;
+    }
     if(!map->iterator){
         return NULL;
     }
@@ -255,7 +294,10 @@ MapKeyElement mapGetNext(Map map){
 
 
 MapResult mapClear(Map map){
-    map->iterator=mapGet(map, mapGetFirst(map));
+    if(!map){
+        return MAP_NULL_ARGUMENT;
+    }
+    map->iterator=map->first;
     while(map->iterator->next!=NULL){
         map->iterator=map->iterator->next;
         mapRemove(map, map->iterator->prev->key);
