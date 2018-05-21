@@ -1,0 +1,38 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+C:/Users/Asaf/Desktop/mtm/ex3/Wet/aaaa/main.c
+stdio.h
+-
+string.h
+-
+stdlib.h
+-
+assert.h
+-
+stdbool.h
+-
+mergesort.h
+C:/Users/Asaf/Desktop/mtm/ex3/Wet/aaaa/mergesort.h
+
+C:/Users/Asaf/Desktop/mtm/ex3/Wet/aaaa/mergesort.c
+mergesort.h
+C:/Users/Asaf/Desktop/mtm/ex3/Wet/aaaa/mergesort.h
+
+C:/Users/Asaf/Desktop/mtm/ex3/Wet/aaaa/mergesort.h
+stdio.h
+-
+string.h
+-
+stdlib.h
+-
+assert.h
+-
+stdbool.h
+-
+
