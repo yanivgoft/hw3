@@ -1,0 +1,3 @@
+C:/Users/Asaf/Desktop/mtm/ex3/Dry/coolElements/cmake-build-debug/CMakeFiles/rebuild_cache.dir
+C:/Users/Asaf/Desktop/mtm/ex3/Dry/coolElements/cmake-build-debug/CMakeFiles/coolElements.dir
+C:/Users/Asaf/Desktop/mtm/ex3/Dry/coolElements/cmake-build-debug/CMakeFiles/edit_cache.dir
