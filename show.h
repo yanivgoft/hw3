@@ -2,7 +2,10 @@
 #define SHOW_H_
 
 #include "mtm_ex3.h"
+#ifndef ELEMENT_
+#define ELEMENT_
 typedef void* Element;
+#endif
 typedef struct show_t  {
     int ages[2];
     int episode_duration;

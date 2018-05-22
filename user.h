@@ -1,7 +1,10 @@
 #ifndef USER_H_
 #define USER_H_
 #include "set.h"
+#ifndef ELEMENT_
+#define ELEMENT_
 typedef void* Element;
+#endif
 typedef struct user_t  {
     int age;
     char* user_name;

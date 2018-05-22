@@ -1,12 +1,7 @@
 #include <stdlib.h>
-#include <stdio.h>
-#include <stdio.h>
-#include <stdbool.h>
 #include <string.h>
 #include <assert.h>
 #include "show.h"
-#include "C:\Users\yaniv\Desktop\mtm\hw3\HW3_Files_GoodLuck_v3\mtm_ex3.h"
-
 
 
 Show showCreate(char* name, Genre genre, int ages[2], int episode_duration,
@@ -51,5 +46,5 @@ Element showCopy(Element input){
     if(!copy){
         return NULL;
     }
-    return copy;
+    return (Element)copy;
 }

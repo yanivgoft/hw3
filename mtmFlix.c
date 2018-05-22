@@ -1,22 +1,25 @@
-#include <stdio.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "mtmflix.h"
-#include "map.h"
 #include "set.h"
 #include "show.h"
 #include "user.h"
-#include <stdbool.h>
 #include <assert.h>
+#include "map.h"
+#include "list.h"
 
-static void removeElementFromUsers(Map map, char* name, bool shows);
-static double calculateAvgDuration(MtmFlix mtmflix, Set fav_show);
-static int countFriendLikes(Set friends, char* show);
+static int countFavoriteGenre(Map shows, Set fav_shows, Genre genre);
+static void removeElementFromUsers(Map map, char* name, void (*remove)(User user, void* name));
+static double calculateAvgDuration(Map shows, Set fav_show);
+static int countFriendLikes(MtmFlix mtmflix, Set friends, char* show);
 static int calculateShowGrade(int friends, int duration,
                               double avg_duration, int genre);
-static int indexOfMaxGradedShow(Show* show_arr, Set friends, int n,
+int indexOfMaxGradedShow(MtmFlix mtmflix, Show* show_arr, Set friends, int n,
                                 Set fav_shows, double avg_duration);
+void removeFavShow(User user, void* name);
+void removeFriends(User user, void* name);
+static void sortRecomnedShow(MtmFlix mtmflix, Show* show_arr, int n, Set friends,
+                             Set fav_shows, double avg_duration);
 
 char* genres[] = { "SCIENCE_FICTION", "DRAMA", "COMEDY", "CRIME",
                    "MYSTERY", "DOCUMENTARY", "ROMANCE", "HORROR"};
@@ -40,24 +43,26 @@ MtmFlix mtmFlixCreate(){
     return new_flix;
 }
 void mtmFlixDestroy(MtmFlix mtmflix){
-    mapDestroy(mtmflix->users);
-    mapDestroy(mtmflix->shows);
-    free(mtmflix);
-    mtmflix=NULL;
+    if(mtmflix) {
+        mapDestroy(mtmflix->users);
+        mapDestroy(mtmflix->shows);
+        free(mtmflix);
+        mtmflix = NULL;
+    }
 }
 
 MtmFlixResult mtmFlixAddUser(MtmFlix mtmflix, const char* username, int age) {
     if(mtmflix==NULL || username==NULL){
         return MTMFLIX_NULL_ARGUMENT;
     }
-    if(username==""){
+    if(*username=='\0'){
         return MTMFLIX_ILLEGAL_USERNAME;
-    }
-    if(age<MTM_MIN_AGE || age>MTM_MAX_AGE){
-        return MTMFLIX_ILLEGAL_AGE;
     }
     if(mapContains(mtmflix->users, (void*)username)){
         return MTMFLIX_USERNAME_ALREADY_USED;
+    }
+    if(age<MTM_MIN_AGE || age>MTM_MAX_AGE){
+        return MTMFLIX_ILLEGAL_AGE;
     }
     if(!legalName((char*)username)){
         return MTMFLIX_ILLEGAL_USERNAME;
@@ -74,6 +79,9 @@ MtmFlixResult mtmFlixAddUser(MtmFlix mtmflix, const char* username, int age) {
 
 
 MtmFlixResult mtmFlixRemoveUser(MtmFlix mtmflix, const char* username){
+    if(!mtmflix || !username){
+        return MTMFLIX_NULL_ARGUMENT;
+    }
     MapResult result=mapRemove(mtmflix->users,(void*)username);
     if(result==MAP_NULL_ARGUMENT){
         return MTMFLIX_NULL_ARGUMENT;
@@ -81,7 +89,7 @@ MtmFlixResult mtmFlixRemoveUser(MtmFlix mtmflix, const char* username){
     if(result==MAP_ITEM_DOES_NOT_EXIST){
         return  MTMFLIX_USER_DOES_NOT_EXIST;
     }
-    removeElementFromUsers(mtmflix->users, (char*)username, false);
+    removeElementFromUsers(mtmflix->users, (char*)username, removeFriends);
     return MTMFLIX_SUCCESS;
 }
 
@@ -89,6 +97,9 @@ MtmFlixResult mtmFlixAddFriend(MtmFlix mtmflix, const char* username1,
                                const char* username2){
     if(!mtmflix || !username1 || !username2){
         return MTMFLIX_NULL_ARGUMENT;
+    }
+    if(strcmp(username1,username2)==0){
+        return MTMFLIX_ILLEGAL_USERNAME;
     }
     if(!mapContains(mtmflix->users, (void*)username1) ||
             !mapContains(mtmflix->users, (void*)username2)){
@@ -125,14 +136,20 @@ MtmFlixResult mtmFlixAddSeries(MtmFlix mtmflix, const char* name,
     if(!legalName((char*)name)){
         return MTMFLIX_ILLEGAL_SERIES_NAME;
     }
-    if(episodesDuration<=0){
-        return MTMFLIX_ILLEGAL_EPISODES_DURATION;
+    if(mapContains(mtmflix->shows, (void*)name)){
+        return MTMFLIX_SERIES_ALREADY_EXISTS;
     }
     if(episodesNum<=0){
         return MTMFLIX_ILLEGAL_EPISODES_NUM;
     }
-    if(mapContains(mtmflix->shows, (void*)name)){
-        return MTMFLIX_SERIES_ALREADY_EXISTS;
+    if(episodesDuration<=0){
+        return MTMFLIX_ILLEGAL_EPISODES_DURATION;
+    }
+    int ages2[2];
+    if(!ages){
+        ages=ages2;
+        ages[0]=MTM_MIN_AGE;
+        ages[1]=MTM_MAX_AGE;
     }
     Show show=showCreate((char*)name,genre,ages, episodesDuration, episodesNum);
     if(!show){
@@ -147,31 +164,35 @@ MtmFlixResult mtmFlixAddSeries(MtmFlix mtmflix, const char* name,
     return MTMFLIX_SUCCESS;
 }
 
-static void removeElementFromUsers(Map map, char* name, bool shows){
-    User user=mapGetFirst(map);
-    while(user!=NULL){
-        if(shows) {
-            setRemove(user->fav_shows, (void *) name);
-        }
-        else{
-            setRemove(user->friends, (void*)name);
-        }
-        user=mapGetNext(map);
+void removeFavShow(User user, void* name){
+    setRemove(user->fav_shows, name);
+}
+void removeFriends(User user, void* name){
+    setRemove(user->friends, name);
+}
+
+static void removeElementFromUsers(Map map, char* name, void (*remove)(User user, void* name)){
+    char* username=mapGetFirst(map);
+    while(username!=NULL){
+        User user=mapGet(map,username);
+        remove(user,(void*)name);
+        username=mapGetNext(map);
+
     }
 }
 
 bool legalName(char *name) {
-    if(!name ||name==""){
+    if(!name ||*name =='\0'){
         return false;
     }
     for (int i = 0; i < strlen(name); i++) {
-        if(!((name[i]>'a' && name[i]<'z') ||
-             (name[i]>'A' && name[i]<'Z') ||
-             (name[i]>'0' && name[i]<'9'))) {
+        if(!((name[i]>='a' && name[i]<='z') ||
+             (name[i]>='A' && name[i]<='Z') ||
+             (name[i]>='0' && name[i]<='9'))) {
             return false;
         }
-        return true;
     }
+    return true;
 }
 
 
@@ -186,7 +207,7 @@ MtmFlixResult mtmFlixRemoveSeries(MtmFlix mtmflix, const char* name){
     if(result==MAP_ITEM_DOES_NOT_EXIST){
         return MTMFLIX_SERIES_DOES_NOT_EXIST;
     }
-    removeElementFromUsers(mtmflix->users, (char*)name, true);
+    removeElementFromUsers(mtmflix->users, (char*)name, removeFavShow);
     return MTMFLIX_SUCCESS;
 }
 
@@ -204,10 +225,8 @@ MtmFlixResult mtmFlixSeriesJoin(MtmFlix mtmflix, const char* username,
     Show show=mapGet(mtmflix->shows, (char*)seriesName);
     User user=mapGet(mtmflix->users, (char*)username);
     if(show->ages[0]>user->age || show->ages[1]<user->age){
-        MTMFLIX_USER_NOT_IN_THE_RIGHT_AGE;
+        return MTMFLIX_USER_NOT_IN_THE_RIGHT_AGE;
     }
-    showDestroy(show);
-    userDestroy(user);
     setAdd(user->fav_shows, (void*)seriesName);
     return MTMFLIX_SUCCESS;
 }
@@ -232,11 +251,9 @@ static int indexOfMaxShow(void** arr, int n){
     Show* show_arr=(Show*)arr;
     int i_max=0;
     for (int i = 1; i < n; i++) {
-        char* g1=(char*)genres[show_arr[i]->genre];
-        char* g2=(char*)genres[show_arr[i_max]->genre];
-        int compare=strcmp(g1, g2);
-        if(compare>0){
-            i_max=i;
+        int compare=strcmp(genres[show_arr[i]->genre], genres[show_arr[i_max]->genre]);
+        if(compare>0) {
+            i_max = i;
         }
         else if(compare==0){
             if(strcmp(show_arr[i]->name,show_arr[i_max]->name)>0){
@@ -244,6 +261,7 @@ static int indexOfMaxShow(void** arr, int n){
             }
         }
     }
+    return i_max;
 }
 
 static int indexOfMaxUser(void** arr,int n){
@@ -270,14 +288,18 @@ static void sortArr(void** arr, int n, int (*indexOfMax)(void**arr, int n)){
 }
 
 static Show* createShowArr(Map shows, int n){
-    Show *show_arr = malloc(sizeof(show_arr)*n);
+    assert(shows && n>0);
+    Show* show_arr= malloc(sizeof(*show_arr)*n);
     if (!show_arr) {
         return NULL;
     }
-    show_arr[0] = mapGetFirst(shows);
-    for (int i = 1; i < n; i++) {
-        show_arr[i] = mapGetNext(shows);
+    if(n!=0) {
+        show_arr[0] = (Show) mapGet(shows, mapGetFirst(shows));
     }
+    for (int i = 1; i < n; i++) {
+        show_arr[i] = (Show) mapGet(shows, mapGetNext(shows));
+    }
+    return show_arr;
 }
 
 MtmFlixResult mtmFlixReportSeries(MtmFlix mtmflix,
@@ -290,9 +312,9 @@ MtmFlixResult mtmFlixReportSeries(MtmFlix mtmflix,
         return MTMFLIX_NO_SERIES;
     }
     Show *show_arr = createShowArr(mtmflix->shows,n);
-    sortArr((void **) mtmflix->shows, n, indexOfMaxShow);
+    sortArr((void **) show_arr, n, indexOfMaxShow);
     for (int i = 0; i < mapGetSize(mtmflix->shows); i++) {
-        fprintf(outputStream, mtmPrintSeries(show_arr[i]->name, genres[show_arr[i]->genre]));
+        fprintf(outputStream, "%s\n", mtmPrintSeries(show_arr[i]->name, genres[show_arr[i]->genre]));
     }
     free(show_arr);//This is only a pointer array so it was mallocated without a create function
     //Do we need Fclose here or in main func?
@@ -302,12 +324,21 @@ MtmFlixResult mtmFlixReportSeries(MtmFlix mtmflix,
 
 static List setToList(Set set){
     List list=listCreate(stringCopy,stringDestroy);
-    listInsertFirst(list, setGetFirst(set));
-    for (int i = 0; i < setGetSize(set); i++) {
-        listInsertAfterCurrent(list,setGetNext(set));
+    if(!list){
+        return NULL;
+    }
+    char* name=(char*)setGetFirst(set);
+    if(!name) {
+        return list;
+    }
+    listInsertFirst(list, (void*)name);
+    for (int i = 1; i < setGetSize(set); i++) {
+        name=setGetNext(set);
+        listInsertLast(list,name);
     }
     return list;
 }
+
 
 MtmFlixResult mtmFlixReportUsers(MtmFlix mtmflix, FILE* outputStream){
     if(!mtmflix || !outputStream){
@@ -317,81 +348,89 @@ MtmFlixResult mtmFlixReportUsers(MtmFlix mtmflix, FILE* outputStream){
     if(n==0){
         return MTMFLIX_NO_USERS;
     }
-    User* user_arr=malloc(sizeof(user_arr));
+    User* user_arr=malloc(sizeof(User)*n);
     if(!user_arr){
         return  MTMFLIX_OUT_OF_MEMORY;
     }
-    user_arr[0]=mapGetFirst(mtmflix->users);
+    user_arr[0]=mapGet(mtmflix->users,mapGetFirst(mtmflix->users));
     for (int i = 1; i < n; i++) {
-        user_arr[i]=mapGetNext(mtmflix->users);
+        user_arr[i]=mapGet(mtmflix->users,mapGetNext(mtmflix->users));
     }
     sortArr((void**)user_arr, n, indexOfMaxUser);
-    for (int i = 0; i < mapGetSize(mtmflix->users); i++) {
-        fprintf(outputStream,mtmPrintUser(user_arr[i]->user_name,
-                        user_arr[i]->age, setToList(user_arr[i]->friends),
-                 setToList(user_arr[i]->fav_shows)));
-
+    for (int i = 0; i < n; i++) {
+        List friends_list = setToList(user_arr[i]->friends);
+        List show_list = setToList(user_arr[i]->fav_shows);
+        char *to_print = (char *) mtmPrintUser(user_arr[i]->user_name,
+                                               user_arr[i]->age, friends_list,show_list);
+        if (!to_print) {
+            listDestroy(friends_list);
+            listDestroy(show_list);
+            return MTMFLIX_OUT_OF_MEMORY;
+        }
+        fprintf(outputStream, to_print);
+        listDestroy(friends_list);
+        listDestroy(show_list);
     }
     free(user_arr);
     return MTMFLIX_SUCCESS;
 }
 
-static Map createSubMap(MtmFlix mtmflix, char* username, int count){
-    Map new_map=mapCreate(showCopy,stringCopy,showDestroy, stringDestroy, stringCompare);
+static Map createSubMap(MtmFlix mtmflix, char* username){
+    Map new_map=mapCopy(mtmflix->shows);
+    Map temp=mapCopy(mtmflix->shows);
     User user=mapGet(mtmflix->users,username);
-    if(count==0 || count>mapGetSize(mtmflix->shows)-setGetSize(user->fav_shows)){
-        count=mapGetSize(mtmflix->shows)-setGetSize(user->fav_shows);
-    }
-    Show show=mapGetFirst(mtmflix->shows);
-    for (int i = 0; i < count; i++) {
-        if((setIsIn(user->fav_shows, (void*)show->name))||
-                user->age<show->ages[0] || user->age>show->ages[1] ||
-                (calculateShowGrade(countFriendLikes(user->friends,show->name),
-                                    show->episode_duration,
-                                    calculateAvgDuration(mtmflix,user->fav_shows),
-                                    show->genre)==0)){
-            i--;
-            show = mapGetNext(mtmflix->shows);
-            continue;
+    char* show_name=mapGetFirst(mtmflix->shows);
+    while(show_name) {
+        Show show = mapGet(temp, show_name);
+        if((setIsIn(user->fav_shows,(void*)show_name))||user->age<show->ages[0]
+           || user->age>show->ages[1] || setGetSize(user->friends)==0) {
+            mapRemove(new_map, (void *) show_name);
         }
-        mapPut(new_map, (void*)show->name, (void*)show);
-        show=mapGetNext(mtmflix->shows);
+        else if(calculateShowGrade(countFriendLikes(mtmflix, user->friends,
+                       show->name), show->episode_duration,calculateAvgDuration
+                       (temp,user->fav_shows),countFavoriteGenre(temp,user->fav_shows,show->genre))==0) {
+            mapRemove(new_map, (void *) show_name);
+        }
+        show_name=(char*)mapGetNext(mtmflix->shows);
     }
-    userDestroy(user);
+    mapDestroy(temp);
     return new_map;
 }
 
-static double calculateAvgDuration(MtmFlix mtmflix, Set fav_show){
-    assert(mtmflix&& fav_show);
-    Show show=mapGet(mtmflix->shows, setGetFirst(fav_show));
+static double calculateAvgDuration(Map shows, Set fav_show){
+    assert(shows&& fav_show);
+    if(setGetSize(fav_show)==0){
+        return 0;
+    }
+    Show show=mapGet(shows, setGetFirst(fav_show));
     double sum=show->episode_duration;
-    for (int i = 0; i < setGetSize(fav_show); i++) {
-        show=mapGet(mtmflix->shows,setGetNext(fav_show));
+    for (int i = 1; i < setGetSize(fav_show); i++) {
+        show=mapGet(shows,setGetNext(fav_show));
         sum+=show->episode_duration;
     }
     sum/=setGetSize(fav_show);
     return sum;
 }
 
-static int countFriendLikes(Set friends, char* show){
+static int countFriendLikes(MtmFlix mtmflix, Set friends, char* show){
     assert(friends && show);
-    User friend=setGetFirst(friends);
-    int counter=setIsIn(friend->fav_shows, (void*)show);
-    for (int i = 0; i < setGetSize(friends); i++) {
-        friend=setGetNext(friends);
-        if(setIsIn(friend->fav_shows,(void*)show)){
+    User friend=mapGet(mtmflix->users,setGetFirst(friends));
+    int counter=setIsIn(friend->fav_shows,(void*)show);
+    for (int i = 0; i <setGetSize(friends)-1 ; i++) {
+        friend = mapGet(mtmflix->users, setGetNext(friends));
+        if (setIsIn(friend->fav_shows, (void *) show)) {
             counter++;
         }
     }
     return counter;
 }
 
-static int countFavoriteGenre(Set fav_shows, Genre genre){
+static int countFavoriteGenre(Map shows, Set fav_shows, Genre genre){
     assert(fav_shows);
-    Show show=setGetFirst(fav_shows);
+    Show show=mapGet(shows,setGetFirst(fav_shows));
     int counter=(show->genre==genre);
-    for (int i = 0; i < setGetSize(fav_shows); i++) {
-        show=setGetNext(fav_shows);
+    for (int i = 1; i < setGetSize(fav_shows); i++) {
+        show=mapGet(shows,setGetNext(fav_shows));
         if(show->genre==genre){
             counter++;
         }
@@ -413,62 +452,70 @@ static int calculateShowGrade(int friends, int duration,
     return (int)grade;
 }
 
-static void sortRecomnedShow(Show* show_arr, int n, Set friends,
-                             Set fav_shows, double avg_duration){
+static void sortRecomnedShow(MtmFlix mtmflix, Show* show_arr, int n, Set friends,
+                             Set fav_shows, double avg_duration) {
     int i_max;
-    for (int length = n; length > 1 ; length--) {
-        i_max = indexOfMaxGradedShow(show_arr, friends, length, fav_shows, avg_duration);
-        void* temp=show_arr[i_max];
-        show_arr[i_max]=show_arr[length-1];
-        show_arr[length-1]=temp;
-
+    for (int length = n; length > 1; length--) {
+        i_max = indexOfMaxGradedShow(mtmflix, show_arr, friends, length, fav_shows, avg_duration);
+        void *temp = show_arr[i_max];
+        show_arr[i_max] = show_arr[length - 1];
+        show_arr[length - 1] = temp;
     }
-
-static int indexOfMaxGradedShow(Show* show_arr, Set friends, int n,
+}
+int indexOfMaxGradedShow(MtmFlix mtmflix, Show* show_arr, Set friends, int n,
                                 Set fav_shows, double avg_duration){
     int i_max=0;
-    int min_grade;
+    int friendsLike=countFriendLikes(mtmflix, friends,show_arr[0]->name);
+    int genre=countFavoriteGenre(mtmflix->shows,fav_shows,show_arr[0]->genre);
+    int min_grade=calculateShowGrade(friendsLike,
+             show_arr[0]->episode_duration,avg_duration,genre);
     for (int i = 1; i < n; i++) {
-        int friendsLike=countFriendLikes(friends,show_arr[i]->name);
-        int genre=countFavoriteGenre(fav_shows,show_arr[i]->genre);
+        friendsLike=countFriendLikes(mtmflix, friends,show_arr[i]->name);
+        genre=countFavoriteGenre(mtmflix->shows,fav_shows,show_arr[i]->genre);
         int temp_grade=calculateShowGrade(friendsLike,
                 show_arr[i]->episode_duration,avg_duration, genre);
 
         if(temp_grade<min_grade) {
             i_max = i;
+            min_grade=temp_grade;
         }
         else if(temp_grade==min_grade &&
                 strcmp(show_arr[i]->name,show_arr[i_max]->name)>0) {
             i_max = i;
         }
     }
+    return i_max;
 }
 
 
-MtmFlixResult mtmFlixGetRecommendations(MtmFlix mtmflix, char* username,
+MtmFlixResult mtmFlixGetRecommendations(MtmFlix mtmflix,const char* username,
                                         int count, FILE* outputStream){
     if(!mtmflix || !username || !outputStream){
         return  MTMFLIX_NULL_ARGUMENT;
     }
-    if(!mapContains((mtmflix->users), username)){
+    if(!mapContains((mtmflix->users), (char*)username)){
         return MTMFLIX_USER_DOES_NOT_EXIST;
     }
     if(count<0){
         return MTMFLIX_ILLEGAL_NUMBER;
     }
-    Map new_map=createSubMap(mtmflix,username,count);
-    User user=mapGet(mtmflix->users,username);
-    int avgDuration=calculateAvgDuration(mtmflix,user->fav_shows);
-    Show* show= createShowArr(new_map,mapGetSize(new_map));
-    sortRecomnedShow(show, mapGetSize(new_map),user->friends,user->fav_shows,avgDuration);
-    for (int i = 0; i < mapGetSize(new_map); i++) {
-        fprintf(outputStream, mtmPrintSeries(show[i]->name, genres[show[i]->genre]));
+    Map new_map=createSubMap(mtmflix,(char*)username);
+    User user=mapGet(mtmflix->users,(void*)username);
+    int avgDuration=calculateAvgDuration(mtmflix->shows,user->fav_shows);
+    Show* show_arr= createShowArr(new_map,mapGetSize(new_map));
+    sortRecomnedShow(mtmflix, show_arr, mapGetSize(new_map),user->friends,user->fav_shows,avgDuration);
+    if(count==0 || count>mapGetSize(new_map)){
+        count=mapGetSize(new_map);
     }
-    free(show);
+    for (int i = 0; i < count; i++) {
+        fprintf(outputStream, mtmPrintSeries(show_arr[i]->name, genres[show_arr[i]->genre]));
+    }
+    mapDestroy(new_map);
+    free(show_arr);
     return MTMFLIX_SUCCESS;
 }
 
-int main() {
+/*int main() {
     printf("Hello, World!\n");
     return 0;
-}
+}*/
