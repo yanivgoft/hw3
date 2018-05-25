@@ -1,0 +1,3 @@
+C:/Users/Asaf/Desktop/mtm/ex3/Wet/map_mtm/cmake-build-debug/CMakeFiles/MAP.dir
+C:/Users/Asaf/Desktop/mtm/ex3/Wet/map_mtm/cmake-build-debug/CMakeFiles/edit_cache.dir
+C:/Users/Asaf/Desktop/mtm/ex3/Wet/map_mtm/cmake-build-debug/CMakeFiles/rebuild_cache.dir
