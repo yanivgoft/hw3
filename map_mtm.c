@@ -5,7 +5,12 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <assert.h>
+
+
+
 typedef struct mapNode *Node;
+/**Type used to hold a node in the map that has a data element and a key
+ *element and hold a pointer to the nodes before and after it in the map*/
 struct mapNode{
     MapDataElement data;
     MapKeyElement key;
@@ -24,17 +29,23 @@ struct Map_t{
     freeMapKeyElements free_key;
 };
 
+static Node findNodeLocation(Map map, MapKeyElement element);
+static void nodeDestroy(Map m, Node n);
+static Node nodeCreate(Map map,MapDataElement dataElement,
+                       MapKeyElement keyElement,MapResult* result);
+
+
 Map mapCreate(copyMapDataElements copyDataElement,
               copyMapKeyElements copyKeyElement,
               freeMapDataElements freeDataElement,
               freeMapKeyElements freeKeyElement,
               compareMapKeyElements compareKeyElements){
-    Map map=malloc(sizeof( *map));
-    if(!map){
-        return NULL;
-    }
     if(copyDataElement==NULL || copyKeyElement==NULL || freeDataElement==NULL
        || freeKeyElement==NULL || compareKeyElements==NULL){
+        return NULL;
+    }
+    Map map=malloc(sizeof( *map));
+    if(!map){
         return NULL;
     }
     map->copy_data=copyDataElement;
@@ -47,7 +58,14 @@ Map mapCreate(copyMapDataElements copyDataElement,
     return map;
 }
 
-void static nodeDestroy(Map m, Node n){
+
+/**
+*	nodeDestroy: Destroys a node in the map
+*
+* @param map - The map in which we need to destroy the node
+* @param n - The node to destroy
+*/
+static void nodeDestroy(Map m, Node n){
     m->free_data(n->data);
     m->free_key(n->key);
     free(n);
@@ -58,6 +76,7 @@ void mapDestroy(Map map){
     if(map==NULL){
         return;
     }
+    map->iterator=map->first;
     while(map->iterator!=NULL){
         Node temp=map->iterator->next;
         nodeDestroy(map, map->iterator);
@@ -82,7 +101,6 @@ Map mapCopy(Map map){
     while(temp){
         MapKeyElement key=temp->key;
         MapDataElement data=temp->data;
-        //Node new_temp=nodeCreate(map,data,key,&result);
         mapPut(copy,key,data);
         temp=temp->next;
     }
@@ -94,36 +112,39 @@ int mapGetSize(Map map){
     if(!map){
         return -1;
     }
-    int counter=1;
-    Node temp=map->iterator;
-    if(map->first==NULL && map->first==NULL){
+    if(!map->first){
         return 0;
     }
-    while(temp){
+    int counter=1;
+    Node temp=map->first;
+    while(temp->next){
         counter++;
-        temp=temp->prev;
-    }
-    while(map->iterator){
-        counter++;
-        map->iterator=map->iterator->next;
+        temp=temp->next;
     }
     return counter;
 }
+
+
+/**
+*	findNodeLocation: internal function to find a node in the map.
+*
+* @param map - The map in which to find the node
+* @param element - The key element of the searched node
+* @return
+* 	NULL if the map is empty
+ * 	The node in the map with the given key element if the node exists in it.
+ * 	If it doesn't exist the node placed before where the node would be placed
+ * 	if it was in the map.
+*/
 static Node findNodeLocation(Map map, MapKeyElement element){
     assert(map && element && map->first);
     Node temp=map->first;
     if(!map->first){
         return NULL;
     }
-    if(map->compare_key(element, temp->key)>0) {
-        while (temp->next && map->compare_key(element, temp->key) > 0) {
-            temp = temp->next;
-        }
-    }
-    else {
-        while (temp->prev && map->compare_key(element, temp->key) < 0) {
-            temp = temp->prev;
-        }
+
+    while (temp->next && map->compare_key(element, temp->key) > 0) {
+        temp = temp->next;
     }
     return temp;
 }
@@ -144,8 +165,21 @@ bool mapContains(Map map, MapKeyElement element) {
     return true;
 }
 
+
+/**
+*	nodeCreate: Creates a new map node
+*
+* @param map - The map in which the new node will be
+* @param keyElement - The key element of the new wanted node
+* @param dataElement - The data element of the new wanted node
+* @param result - pointer to map status, will be changed to MAP_OUT_OF_MEMORY
+ *                if a memory error occurred.
+* @return
+* 	NULL if a memorry error occurred
+* 	the new created node otherwise
+*/
 static Node nodeCreate(Map map,MapDataElement dataElement,
-       MapKeyElement keyElement,MapResult* result){
+                       MapKeyElement keyElement,MapResult* result){
     Node new_node=malloc(sizeof(*new_node));
     if(!new_node){
         *result= MAP_OUT_OF_MEMORY;
@@ -154,6 +188,7 @@ static Node nodeCreate(Map map,MapDataElement dataElement,
     new_node->data=map->copy_data(dataElement);
     if(!new_node->data){
         free(new_node);
+        new_node=NULL;
         *result= MAP_OUT_OF_MEMORY;
         return NULL;
 
@@ -162,6 +197,7 @@ static Node nodeCreate(Map map,MapDataElement dataElement,
     if(!new_node->key){
         map->free_data(new_node->data);
         free(new_node);
+        new_node=NULL;
         *result= MAP_OUT_OF_MEMORY;
         return NULL;
 
@@ -169,6 +205,7 @@ static Node nodeCreate(Map map,MapDataElement dataElement,
     *result= MAP_SUCCESS;
     return new_node;
 }
+
 
 MapResult mapPut(Map map, MapKeyElement keyElement,
                  MapDataElement dataElement){
@@ -179,6 +216,9 @@ MapResult mapPut(Map map, MapKeyElement keyElement,
     MapResult result;
     if(map->first==NULL){ //first node
         new_node=nodeCreate(map,dataElement,keyElement,&result);
+        if(result!=MAP_SUCCESS){
+            return result;
+        }
         map->first=new_node;
         map->first->next=NULL;
         map->first->prev=NULL;
@@ -195,7 +235,7 @@ MapResult mapPut(Map map, MapKeyElement keyElement,
         map->free_data(temp->data);
         temp->data=map->copy_data(dataElement);
     }
-    else {//compare!=0
+    else {
         new_node=nodeCreate(map,dataElement,keyElement,&result);
         if(result!=MAP_SUCCESS){
             map->iterator=NULL;
@@ -235,6 +275,9 @@ MapDataElement mapGet(Map map, MapKeyElement keyElement) {
         return NULL;
     }
     Node temp = findNodeLocation(map, keyElement);
+    if(map->compare_key(temp->key,keyElement)){
+        return NULL;
+    }
     return temp->data;
 }
 
@@ -246,11 +289,19 @@ MapResult mapRemove(Map map, MapKeyElement keyElement){
     if(map->compare_key(keyElement, temp->key)){
         return MAP_ITEM_DOES_NOT_EXIST;
     }
+    if(map->compare_key(map->first->key,keyElement)==0 && !map->first->next){
+        map->free_data(map->first->data);
+        map->free_key(map->first->key);
+        free(map->first);
+        map->first=NULL;
+        return MAP_SUCCESS;
+    }
     if(temp->prev !=NULL && temp->next!=NULL){
         temp->prev->next=temp->next;
         temp->next->prev=temp->prev;
     }
     if(temp->prev==NULL && temp->next!=NULL){
+        map->first=temp->next;
         temp->next->prev=NULL;
     }
     if(temp->prev!=NULL && temp->next==NULL){
